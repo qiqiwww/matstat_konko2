@@ -1,0 +1,233 @@
+---
+title: "_Лабораторна робота № 5_. Випадок з двома вибірками. Побудова регресійних моделей"
+author: "Конько Ярослав, КН-24-1"
+lang: ukr
+format:
+  html:
+    # theme: quartz
+    code-fold: true
+    toc: true # меню
+    toc_float: # спливаюче меню  
+      collapsed: true # авто
+      number_sections: true
+      # css: styles.css
+editor: visual
+bibliography: references.bib
+---
+
+**Мета:** Засвоєння базових принципів, знайомство з інструментами та набуття навичок роботи з декількама вибірками, побудови моделей регресії на основі МНК засобами мови програмування R та колекції пакетів `dplyr`, `ggplot2`.
+
+# Постановка завдання
+
+Побудувати модель парної регресії на основі даних з файлу.
+
+# Завантаження та підготовка даних
+
+## Підготовка середовища
+
+```{r}
+if (!require(readxl)) install.packages("readxl")
+if (!require(dplyr)) install.packages("dplyr")
+if (!require(ggplot2)) install.packages("ggplot2")
+if (!require(car)) install.packages("car")
+if (!require(broom)) install.packages("broom")
+if (!require(ggpubr)) install.packages("ggpubr")
+
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(car)
+library(broom)
+library(ggpubr)
+```
+
+## Імпорт даних з Excel-файлу
+
+```{r}
+# Завантаження даних з Excel-файлу
+data <- read_excel("data/data.xlsx")
+
+# Перегляд структури даних
+cat("Структура завантажених даних:\n")
+str(data)
+
+cat("\nПерші 10 рядків даних:\n")
+head(data, 10)
+
+cat("\nНазви стовпців:\n")
+names(data)
+```
+
+
+## Вибір та підготовка змінних
+
+```{r}
+x_col <- 1  # Номер стовпця для X
+y_col <- 2  # Номер стовпця для Y
+
+reg_data <- data.frame(
+  X = data[[x_col]],
+  Y = data[[y_col]]
+)
+
+# Видалення рядків з пропущеними значеннями
+reg_data <- reg_data[complete.cases(reg_data), ]
+
+cat("Розмірність даних для регресії:", dim(reg_data), "\n")
+cat("Перші 6 спостережень:\n")
+head(reg_data)
+```
+
+
+
+# Теоретичні відомості
+
+Модель парної лінійної регресії має вигляд:
+
+$$Y=\beta_0+\beta_1X+\epsilon$$
+
+де:
+
+$Y$ - залежна змінна
+
+$X$ - незалежна змінна
+
+$\beta_0$ - вільний член (intercept)
+
+$\beta_1$ - коефіцієнт регресії
+
+$\varepsilon$ - випадкова похибка
+
+# Виконання роботи
+
+## Описова статистика
+
+```{r}
+# Основні статистичні характеристики
+desc_stats <- data.frame(
+  Змінна = c("X", "Y"),
+  n = c(nrow(reg_data), nrow(reg_data)),
+  Середнє = c(mean(reg_data$X), mean(reg_data$Y)),
+  Стандартне_відхилення = c(sd(reg_data$X), sd(reg_data$Y)),
+  Мінімум = c(min(reg_data$X), min(reg_data$Y)),
+  Максимум = c(max(reg_data$X), max(reg_data$Y)),
+  Медіана = c(median(reg_data$X), median(reg_data$Y))
+)
+
+knitr::kable(desc_stats, caption = "Описова статистика змінних", digits = 3)
+```
+
+## Кореляційний аналіз
+
+```{r}
+# Коефіцієнт кореляції Пірсона
+cor_test <- cor.test(reg_data$X, reg_data$Y)
+cat("Коефіцієнт кореляції Пірсона:\n")
+cat("r =", round(cor_test$estimate, 4), "\n")
+cat("p-value =", round(cor_test$p.value, 4), "\n")
+cat("95% довірчий інтервал: [", 
+    round(cor_test$conf.int[1], 4), ",", 
+    round(cor_test$conf.int[2], 4), "]\n")
+
+# Інтерпретація кореляції
+r_value <- abs(cor_test$estimate)
+if (r_value < 0.3) {
+  strength <- "слабка"
+} else if (r_value < 0.7) {
+  strength <- "помірна"
+} else {
+  strength <- "сильна"
+}
+
+if (cor_test$estimate > 0) {
+  direction <- "позитивний"
+} else {
+  direction <- "негативний"
+}
+
+cat("Інтерпретація:", strength, direction, "зв'язок\n")
+```
+
+## Візуалізація даних
+
+```{r}
+# Діаграма розсіювання з лінією тренду
+p1 <- ggplot(reg_data, aes(x = X, y = Y)) +
+  geom_point(alpha = 0.7, size = 2, color = "blue") +
+  geom_smooth(method = "lm", se = TRUE, color = "red", alpha = 0.3) +
+  labs(title = "Діаграма розсіювання X та Y з лінією регресії",
+       x = "Незалежна змінна (X)",
+       y = "Залежна змінна (Y)") +
+  theme_minimal()
+
+print(p1)
+
+# Histograms for both variables
+p2 <- ggplot(reg_data, aes(x = X)) +
+  geom_histogram(aes(y = ..density..), bins = 15, fill = "lightblue", alpha = 0.7) +
+  geom_density(color = "darkblue") +
+  labs(title = "Гістограма розподілу X",
+       x = "X", y = "Щільність") +
+  theme_minimal()
+
+p3 <- ggplot(reg_data, aes(x = Y)) +
+  geom_histogram(aes(y = ..density..), bins = 15, fill = "lightgreen", alpha = 0.7) +
+  geom_density(color = "darkgreen") +
+  labs(title = "Гістограма розподілу Y",
+       x = "Y", y = "Щільність") +
+  theme_minimal()
+
+ggarrange(p2, p3, ncol = 2)
+
+```
+
+## Побудова регресійної моделі
+
+```{r}
+# Побудова лінійної регресійної моделі
+model <- lm(Y ~ X, data = reg_data)
+
+# Вивід результатів моделі
+cat("Результати регресійного аналізу:\n")
+print(summary(model))
+
+# Детальна інформація про модель
+model_summary <- summary(model)
+
+cat("Рівняння регресії:\n")
+cat("Y =", round(coef(model)[1], 4), "+", round(coef(model)[2], 4), "* X\n\n")
+
+cat("Коефіцієнт детермінації R² =", round(model_summary$r.squared, 4), 
+    "(", round(model_summary$r.squared * 100, 2), "% )\n")
+cat("Скоригований R² =", round(model_summary$adj.r.squared, 4), "\n")
+cat("Стандартна похибка оцінки =", round(model_summary$sigma, 4), "\n")
+```
+
+## Результати та висновки
+
+```{r}
+# Зведена таблиця результатів
+results_summary <- data.frame(
+  Параметр = c(
+    "Рівняння регресії",
+    "Коефіцієнт детермінації R²",
+    "Скоригований R²",
+    "F-статистика",
+    "p-value моделі",
+    "Коефіцієнт кореляції",
+    "Стандартна похибка"
+  ),
+  Значення = c(
+    paste("Y =", round(coef(model)[1], 4), "+", round(coef(model)[2], 4), "* X"),
+    paste(round(model_summary$r.squared, 4), "(", round(model_summary$r.squared * 100, 1), "%)"),
+    round(model_summary$adj.r.squared, 4),
+    round(model_summary$fstatistic[1], 4),
+    round(pf(model_summary$fstatistic[1], model_summary$fstatistic[2], 
+             model_summary$fstatistic[3], lower.tail = FALSE), 4),
+    round(cor_test$estimate, 4),
+    round(model_summary$sigma, 4)
+  )
+)
+
+knitr::kable(results_summary, caption = "Підсумкові результати регресійного аналізу")
+```
