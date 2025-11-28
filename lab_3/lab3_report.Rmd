@@ -1,5 +1,5 @@
 ---
-title: "Лабораторна робота №2"
+title: "Лабораторна робота №3"
 author: "Конько Ярослав, КН-24-1"
 output: html_notebook
 frontsize: 15pt
