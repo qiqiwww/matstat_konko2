@@ -1,7 +1,8 @@
 ---
-title: "Лабораторна робота №1"
+title: "Лабораторна робота №2"
 author: "Конько Ярослав, КН-24-1"
 output: html_notebook
+frontsize: 15pt
 editor_options: 
   chunk_output_type: inline
 ---
